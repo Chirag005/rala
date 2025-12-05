@@ -1,15 +1,13 @@
 <template>
-  <div class="min-h-screen bg-black text-white overflow-x-hidden">
-    <LoadingWidget />
-    <Navbar />
+  <div class="overflow-x-hidden">
     
-    <!-- Hero: Hook with Problem + Teaser -->
-    <section class="h-screen flex items-center justify-center relative">
-      <canvas class="absolute inset-0 opacity-20" ref="bgCanvas"></canvas> <!-- Three.js energy waves -->
+    <!-- Enhanced Hero with Immersive Particles -->
+    <section class="h-screen flex items-center justify-center relative overflow-hidden">
+      <canvas ref="particleCanvas" class="absolute inset-0 opacity-80 pointer-events-none"></canvas> <!-- Increased opacity for visibility -->
       <div class="container mx-auto text-center z-10 px-4">
-        <h1 class="text-6xl md:text-8xl font-bold mb-4 animate-fadeIn">Autonomous Greenhouse OS</h1>
+        <h1 class="text-6xl md:text-8xl font-bold mb-4 gsap-trigger">Autonomous Greenhouse OS</h1>
         <p class="text-xl md:text-2xl mb-8 max-w-2xl mx-auto">AI Agents + RL + Digital Twins: Cut Energy 30%, Boost Yields 12%. Immediate Savings on Your #1 Cost.</p>
-        <button class="bg-emerald-500 text-white px-8 py-4 rounded-full text-lg hover:bg-emerald-600 gsap-trigger">See the Demo</button>
+        <button class="bg-emerald-500 text-white px-8 py-4 rounded-full text-lg hover:bg-emerald-600 transition gsap-trigger">See the Demo</button>
       </div>
     </section>
 
@@ -59,7 +57,7 @@
         </div>
         <div class="text-center mt-8">
           <p>"We're the Source.ag of North America."</p>
-          <button class="bg-emerald-500...">Download Pitch Deck</button>
+          <button class="bg-emerald-500 text-white px-8 py-4 rounded-full text-lg hover:bg-emerald-600 transition">Download Pitch Deck</button>
         </div>
       </div>
     </section>
@@ -68,33 +66,70 @@
     <section class="py-20 text-center">
       <h2 class="text-4xl font-bold mb-4">Ready to Optimize?</h2>
       <p class="mb-8">Join 10 Pilots – $500K Builds the Future</p>
-      <button class="bg-emerald-500 text-white px-8 py-4 rounded-full text-lg">Contact for Funding</button>
+      <button class="bg-emerald-500 text-white px-8 py-4 rounded-full text-lg hover:bg-emerald-600 transition">Contact for Funding</button>
     </section>
   </div>
 </template>
 
 <script setup>
-// GSAP Scroll Triggers
-const { $gsap } = useNuxtApp()
-onMounted(() => {
-  gsap.registerPlugin(ScrollTrigger)
-  gsap.utils.toArray('.gsap-trigger').forEach(el => {
-    gsap.from(el, { y: 50, opacity: 0, duration: 1, scrollTrigger: { trigger: el, start: 'top 80%' } })
-  })
-  // Cursor-follow for WebGL bg
-  const mouse = { x: 0, y: 0 }
-  window.addEventListener('mousemove', (e) => { mouse.x = e.clientX / window.innerWidth; mouse.y = e.clientY / window.innerHeight })
-  // Animate hero canvas with mouse
-})
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 
-// Three.js for Hero BG: Energy grid
+const particleCanvas = ref(null)
+const mouse = reactive({ x: 0.5, y: 0.5 }) // Default center
+
+// Get plugins
+const { $gsap, $three } = useNuxtApp()
+
 onMounted(() => {
-  const scene = useNuxtApp().$three.createEnergyGrid(bgCanvas.value, mouse) // Responsive shader
+  // Cursor tracking for immersion
+  const updateMouse = (e) => {
+    mouse.x = e.clientX / window.innerWidth
+    mouse.y = e.clientY / window.innerHeight
+  }
+  window.addEventListener('mousemove', updateMouse)
+  
+  // Init Three.js particles with error handling
+  if ($three && particleCanvas.value) {
+    try {
+      $three.createParticleField(particleCanvas.value, mouse)
+    } catch (error) {
+      console.error('Three.js init error:', error)
+    }
+  } else {
+    console.warn('Three.js plugin or canvas not available')
+  }
+  
+  // GSAP fade-in for hero elements
+  if ($gsap) {
+    $gsap.from('.gsap-trigger', {
+      y: 50,
+      opacity: 0,
+      duration: 1.5,
+      stagger: 0.2,
+      ease: 'power3.out'
+    })
+  }
+  
+  onBeforeUnmount(() => {
+    window.removeEventListener('mousemove', updateMouse)
+  })
 })
 </script>
 
 <style>
+/* Temporarily comment out gradient to test visibility */
+/* section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(0,0,0,0.5), rgba(0,0,0,0.8));
+  pointer-events: none;
+} */
+
 /* Custom animations */
-@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { 
+  from { opacity: 0; transform: translateY(20px); } 
+  to { opacity: 1; transform: translateY(0); } 
+}
 .animate-fadeIn { animation: fadeIn 1s ease-out; }
 </style>

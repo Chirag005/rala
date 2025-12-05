@@ -9,16 +9,27 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
+
 const loading = ref(true)
-const { $three } = useNuxtApp() // From plugin
+const canvas = ref(null)
 
 onMounted(() => {
-  const scene = $three.createGreenhouseScene(canvas.value)
-  const animate = () => {
-    requestAnimationFrame(animate)
-    $three.animateParticles(scene) // Grow vines, pulse energy
+  const { $three } = useNuxtApp()
+  
+  if ($three && canvas.value) {
+    try {
+      const scene = $three.createGreenhouseScene(canvas.value)
+      const animate = () => {
+        requestAnimationFrame(animate)
+        $three.animateParticles(scene)
+      }
+      animate()
+    } catch (error) {
+      console.error('Error initializing Three.js scene:', error)
+    }
   }
-  animate()
+  
   setTimeout(() => { loading.value = false }, 2500) // Fade after 2.5s
 })
 </script>

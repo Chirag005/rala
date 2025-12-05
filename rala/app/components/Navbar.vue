@@ -14,6 +14,8 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
+
 const scrolled = ref(false)
 onMounted(() => {
   window.addEventListener('scroll', () => { scrolled.value = window.scrollY > 50 })
