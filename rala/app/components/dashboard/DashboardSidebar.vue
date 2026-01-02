@@ -1,6 +1,8 @@
 <template>
   <aside class="sidebar">
-    <NuxtLink to="/" class="logo">R</NuxtLink>
+    <a href="#" class="logo-link">
+      <span class="logo-text">RALA</span>
+    </a>
 
     <nav class="nav-menu">
       <NuxtLink to="/dashboard" class="nav-btn nav-btn-active">
@@ -22,6 +24,35 @@
 </template>
 
 <style scoped>
+
+.logo-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+  margin-bottom: 2rem;
+
+}
+
+.logo-link:hover .logo-text:hover {
+  color: #10b981;
+}
+
+.logo-text {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: #fff;
+  transition: color 300ms ease;
+}
+
 .sidebar {
   width: 5rem;
   border-right: 1px solid rgba(255, 255, 255, 0.05);
@@ -47,18 +78,7 @@
 }
 
 .logo {
-  width: 2.5rem;
-  height: 2.5rem;
-  background: linear-gradient(to bottom right, #10b981, #047857);
-  border-radius: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 700;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
-  margin-bottom: 2rem;
-  text-decoration: none;
+  
 }
 
 @media (max-width: 768px) {
