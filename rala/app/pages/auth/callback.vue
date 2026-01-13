@@ -8,6 +8,14 @@ watchEffect(() => {
     navigateTo('/dashboard')
   }
 })
+
+// SEO
+useHead({
+  title: 'Authenticating - RAALA',
+  meta: [
+    { name: 'description', content: 'Completing your authentication' }
+  ]
+})
 </script>
 
 <template>

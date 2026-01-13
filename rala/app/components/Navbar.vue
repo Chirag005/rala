@@ -3,7 +3,7 @@
     <div id="navbar-bg" class="navbar-bg" :class="{ 'active': scrolled }"></div>
     <div class="navbar-container">
       <a href="#" class="logo-link">
-        <span class="logo-text">RALA</span>
+        <span class="logo-text">RAALA</span>
       </a>
       <ul class="nav-links">
         <li><a href="#mission" class="nav-link">The Agent</a></li>
@@ -11,9 +11,9 @@
         <li><a href="#roadmap" class="nav-link">Roadmap</a></li>
       </ul>
       <div class="nav-actions">
-        <button class="join-beta-btn">
+        <NuxtLink to="/login" class="join-beta-btn">
           Join Beta
-        </button>
+        </NuxtLink>
       </div>
     </div>
   </nav>
@@ -139,6 +139,7 @@ onUnmounted(() => {
 
 /* Join Beta Button */
 .join-beta-btn {
+  display: inline-block;
   padding: 0.5rem 1.25rem;
   border-radius: 9999px;
   background-color: #fff;
@@ -147,6 +148,7 @@ onUnmounted(() => {
   color: #000;
   border: none;
   cursor: pointer;
+  text-decoration: none;
   transition: all 300ms ease;
 }
 

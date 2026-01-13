@@ -12,7 +12,7 @@
       <div class="logo-section">
         <div class="logo-glow"></div>
         <h1 class="logo-text">
-          RALA
+          RAALA
           <span class="logo-indicator"></span>
         </h1>
       </div>

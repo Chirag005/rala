@@ -6,7 +6,7 @@
         <!-- Brand Column -->
         <div class="brand-column">
           <a href="#" class="brand-link">
-            <span class="brand-name">RALA</span>
+            <span class="brand-name">RAALA</span>
           </a>
           <p class="brand-description">
             Autonomous Greenhouse OS powered by AI Agents and Reinforcement Learning. Optimizing energy, maximizing yields, and securing the future of food.
@@ -67,7 +67,7 @@
       <!-- Bottom Bar -->
       <div class="footer-bottom">
         <div class="copyright">
-          &copy; <span>{{ currentYear }}</span> RALA Systems Inc. All rights reserved.
+          &copy; <span>{{ currentYear }}</span> RAALA Systems Inc. All rights reserved.
         </div>
         <div class="status-container">
           <div class="status-badge">
