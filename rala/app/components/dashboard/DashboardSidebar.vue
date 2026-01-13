@@ -1,7 +1,7 @@
 <template>
   <aside class="sidebar">
     <a href="#" class="logo-link">
-      <span class="logo-text">RALA</span>
+      <span class="logo-text">RAALA</span>
     </a>
 
     <nav class="nav-menu">
@@ -30,8 +30,8 @@
   align-items: center;
   gap: 0.5rem;
   text-decoration: none;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 0.75rem;
   justify-content: center;
   color: #fff;
@@ -56,14 +56,15 @@
 .sidebar {
   width: 5rem;
   border-right: 1px solid rgba(255, 255, 255, 0.05);
-  background-color: rgba(9, 9, 11, 0.8);
+  background-color: rgba(16, 185, 129, 0.03);
   backdrop-filter: blur(24px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1.5rem 0;
+  padding: 2rem 0 1.5rem 0;
   z-index: 20;
 }
+
 
 @media (max-width: 768px) {
   .sidebar {

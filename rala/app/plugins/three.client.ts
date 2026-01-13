@@ -26,7 +26,7 @@ export default defineNuxtPlugin(() => {
           const sprite = textureLoader.load('https://threejs.org/examples/textures/sprites/disc.png') // Public glow texture; replace if needed
           
           const material = new THREE.PointsMaterial({
-            color: 0x10B981, // RALA green
+            color: 0x10B981, // RAALA green
             size: 0.3, // Larger for visibility
             map: sprite, // Adds glow
             blending: THREE.AdditiveBlending,
