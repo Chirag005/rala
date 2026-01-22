@@ -1,10 +1,10 @@
 <template>
   <div class="min-h-screen bg-black text-white selection:bg-emerald-500 selection:text-white font-sans flex flex-col">
     <!-- Global Loading Widget -->
-    <LoadingWidget />
+    <LoadingWidgetNew />
     
     <!-- Navigation -->
-    <Navbar />
+    <!-- <Navbar /> -->
     
     <!-- Main Content -->
     <main class="flex-grow">
@@ -12,7 +12,7 @@
     </main>
 
     <!-- Footer -->
-    <Footer />
+    <!-- <Footer /> -->
   </div>
 </template>
 
