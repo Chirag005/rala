@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-black text-white selection:bg-emerald-500 selection:text-white font-sans flex flex-col">
     <!-- Global Loading Widget -->
-    <LoadingWidgetNew />
+    <LoadingWidget />
     
     <!-- Navigation -->
     <!-- <Navbar /> -->
