@@ -1,93 +1,20 @@
-<script setup lang="ts">
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
-
-// Redirect if already logged in
-watchEffect(() => {
-  if (user.value) { 
-    navigateTo('/dashboard') 
-  }
-})
-
-// Auth mode toggle
-const isSignup = ref(false)
-
-// Form data
-const email = ref('')
-const password = ref('')
-const firstName = ref('')
-const lastName = ref('')
-const company = ref('')
-
-// Auth handlers
-const loginWithGoogle = async () => {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { 
-      redirectTo: `${window.location.origin}/auth/callback` 
-    }
-  })
-  if (error) console.error('Google login error:', error)
-}
-
-const loginWithGithub = async () => {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'github',
-    options: { 
-      redirectTo: `${window.location.origin}/auth/callback` 
-    }
-  })
-  if (error) console.error('GitHub login error:', error)
-}
-
-const handleSubmit = async () => {
-  if (isSignup.value) {
-    // Sign up
-    const { error } = await supabase.auth.signUp({
-      email: email.value,
-      password: password.value,
-      options: {
-        data: {
-          first_name: firstName.value,
-          last_name: lastName.value,
-          company: company.value
-        }
-      }
-    })
-    if (error) {
-      console.error('Sign up error:', error)
-      alert(error.message)
-    } else {
-      alert('Please check your email to confirm your account!')
-    }
-  } else {
-    // Sign in
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.value,
-      password: password.value
-    })
-    if (error) {
-      console.error('Sign in error:', error)
-      alert(error.message)
-    }
-  }
-}
-
-const toggleAuthMode = () => {
-  isSignup.value = !isSignup.value
-}
-
-// SEO
-useHead({
-  title: 'RALA - Access Control',
-  meta: [
-    { name: 'description', content: 'Sign in to access your RALA autonomous greenhouse dashboard' }
-  ]
-})
-</script>
-
 <template>
-  <div class="auth-container">
+  <div>
+    <!-- Notification Toast -->
+    <Transition name="slide-down">
+      <div v-if="notification.show" :class="['notification-toast', `notification-${notification.type}`]">
+        <iconify-icon 
+          :icon="notification.type === 'success' ? 'lucide:check-circle' : notification.type === 'error' ? 'lucide:alert-circle' : 'lucide:info'"
+          width="20"
+        ></iconify-icon>
+        <span>{{ notification.message }}</span>
+        <button @click="notification.show = false" class="notification-close">
+          <iconify-icon icon="lucide:x" width="16"></iconify-icon>
+        </button>
+      </div>
+    </Transition>
+
+    <div class="auth-container">
     <!-- Left Panel: Form -->
     <div class="auth-panel">
       <!-- Header -->
@@ -96,7 +23,7 @@ useHead({
           <div class="auth-logo-box">
             <span class="auth-logo-letter">R</span>
           </div>
-          <span class="auth-logo-text">RALA</span>
+          <span class="auth-logo-text">RAALA</span>
         </NuxtLink>
         <NuxtLink to="/" class="auth-back-link">BACK TO SITE</NuxtLink>
       </div>
@@ -113,12 +40,19 @@ useHead({
         </div>
 
         <!-- Social Auth -->
+        <!-- Loading Overlay -->
+        <Transition name="fade">
+          <div v-if="isLoading" class="loading-overlay">
+            <div class="loading-spinner"></div>
+          </div>
+        </Transition>
+
         <div class="social-auth-grid">
-          <button @click="loginWithGithub" class="social-auth-btn">
+          <button @click="loginWithGithub" class="social-auth-btn" :disabled="isLoading">
             <iconify-icon icon="lucide:github" width="16"></iconify-icon>
             GitHub
           </button>
-          <button @click="loginWithGoogle" class="social-auth-btn">
+          <button @click="loginWithGoogle" class="social-auth-btn" :disabled="isLoading">
             <iconify-icon icon="lucide:chrome" width="16"></iconify-icon>
             Google
           </button>
@@ -138,7 +72,7 @@ useHead({
             <div v-if="isSignup" class="signup-fields">
               <div class="name-grid">
                 <div class="input-group">
-                  <label class="input-label">First Name</label>
+                  <label class="input-label">First Name <span class="required-asterisk">*</span></label>
                   <input 
                     v-model="firstName" 
                     type="text" 
@@ -148,7 +82,7 @@ useHead({
                   >
                 </div>
                 <div class="input-group">
-                  <label class="input-label">Last Name</label>
+                  <label class="input-label">Last Name <span class="required-asterisk">*</span></label>
                   <input 
                     v-model="lastName" 
                     type="text" 
@@ -175,7 +109,7 @@ useHead({
 
           <!-- Common Fields -->
           <div class="input-group">
-            <label class="input-label">Email</label>
+            <label class="input-label">Email <span class="required-asterisk">*</span></label>
             <div class="input-wrapper">
               <input 
                 v-model="email" 
@@ -186,11 +120,15 @@ useHead({
               >
               <iconify-icon icon="lucide:mail" class="input-icon" width="14"></iconify-icon>
             </div>
+            <!-- Email Error -->
+            <Transition name="fade">
+              <span v-if="emailError" class="error-message">{{ emailError }}</span>
+            </Transition>
           </div>
 
           <div class="input-group">
             <div class="password-label-row">
-              <label class="input-label">Password</label>
+              <label class="input-label">Password <span class="required-asterisk">*</span></label>
               <a v-if="!isSignup" href="#" class="forgot-password-link">Forgot password?</a>
             </div>
             <div class="input-wrapper">
@@ -203,11 +141,40 @@ useHead({
               >
               <iconify-icon icon="lucide:lock" class="input-icon" width="14"></iconify-icon>
             </div>
+            <!-- Password Error -->
+            <Transition name="fade">
+              <span v-if="passwordError" class="error-message">{{ passwordError }}</span>
+            </Transition>
+            <!-- Password Strength Indicator (Sign Up Only) -->
+            <Transition name="fade">
+              <div v-if="isSignup && password" class="password-strength">
+                <div class="strength-label">
+                  Password strength: 
+                  <span :class="[
+                    'strength-text',
+                    passwordStrength < 40 ? 'weak' : passwordStrength < 70 ? 'medium' : 'strong'
+                  ]">
+                    {{ passwordStrength < 40 ? 'Weak' : passwordStrength < 70 ? 'Medium' : 'Strong' }}
+                  </span>
+                </div>
+                <div class="strength-bar">
+                  <div 
+                    class="strength-fill"
+                    :class="[
+                      passwordStrength < 40 ? 'weak' : passwordStrength < 70 ? 'medium' : 'strong'
+                    ]"
+                    :style="{ width: `${passwordStrength}%` }"
+                  ></div>
+                </div>
+                <p class="strength-hint">Use 8+ chars with uppercase, lowercase, and numbers</p>
+              </div>
+            </Transition>
           </div>
 
-          <button type="submit" class="submit-btn">
-            <span>{{ isSignup ? 'Create Account' : 'Sign In' }}</span>
-            <iconify-icon icon="lucide:arrow-right" class="submit-arrow" width="16"></iconify-icon>
+          <button type="submit" class="submit-btn" :disabled="isLoading">
+            <div v-if="isLoading" class="button-spinner"></div>
+            <span v-else>{{ isSignup ? 'Create Account' : 'Sign In' }}</span>
+            <iconify-icon v-if="!isLoading" icon="lucide:arrow-right" class="submit-arrow" width="16"></iconify-icon>
           </button>
         </form>
 
@@ -224,97 +191,242 @@ useHead({
       <!-- Footer -->
       <div class="auth-footer">
         <p class="auth-footer-text">
-          SECURED BY RALA NEURAL MESH v2.0
+          SECURED BY RAALA NEURAL MESH v2.0
         </p>
       </div>
     </div>
 
-    <!-- Right Panel: Visual Visualization -->
-    <div class="visual-panel">
-      <!-- Background Effects -->
-      <div class="visual-grid"></div>
-      <div class="visual-gradient"></div>
-      
-      <!-- Animated Blob -->
-      <div class="visual-blob"></div>
 
-      <!-- Digital Twin Card -->
-      <div class="digital-twin-card">
-        <!-- Card Header -->
-        <div class="card-header">
-          <div class="card-status">
-            <div class="status-dot"></div>
-            <span class="status-text">Live Agent</span>
-          </div>
-          <span class="card-id">ID: GH-2049-X</span>
-        </div>
-
-        <!-- Visualization Area -->
-        <div class="visualization-area">
-          <!-- Bars Simulation -->
-          <div class="bar-wrapper">
-            <div class="bar-fill bar-1"></div>
-          </div>
-          <div class="bar-wrapper bar-70">
-            <div class="bar-fill bar-2"></div>
-          </div>
-          <div class="bar-wrapper bar-50">
-            <div class="bar-fill bar-3"></div>
-          </div>
-          <div class="bar-wrapper bar-80">
-            <div class="bar-fill bar-4"></div>
-          </div>
-          <div class="bar-wrapper bar-30">
-            <div class="bar-fill bar-5"></div>
-          </div>
-          
-          <!-- Overlay Grid Line -->
-          <div class="grid-line"></div>
-        </div>
-
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-label">Energy Saving</div>
-            <div class="stat-value">
-              32% <span class="stat-indicator stat-up">▲</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Grid Load</div>
-            <div class="stat-value">
-              12kW <span class="stat-indicator stat-down">▼</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Terminal Output -->
-        <div class="terminal-output">
-          <div class="terminal-line">
-            <span class="terminal-prompt">➜</span>
-            <span>Optimizing HVAC setpoints...</span>
-          </div>
-          <div class="terminal-line">
-            <span class="terminal-prompt">➜</span>
-            <span>PPO Model confidence: 98.4%</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Floating Quote -->
-      <div class="floating-quote">
-        <p class="quote-text">
-          "RALA autonomously reduced our operational costs by 28% in the first quarter."
-        </p>
-        <div class="quote-attribution">
-          <span>GreenLeaf Industries</span>
-          <span class="quote-dot"></span>
-          <span>Series B Partner</span>
-        </div>
-      </div>
     </div>
+
   </div>
 </template>
+
+<script setup lang="ts">
+const supabase = useSupabaseClient()
+const user = useSupabaseUser()
+
+// Redirect if already logged in
+watchEffect(() => {
+  if (user.value) { 
+    navigateTo('/dashboard') 
+  }
+})
+
+// Auth mode toggle
+const isSignup = ref(false)
+
+// Loading & notification states
+const isLoading = ref(false)
+const notification = ref({
+  show: false,
+  message: '',
+  type: 'error' as 'error' | 'success' | 'info'
+})
+
+// Form data
+const email = ref('')
+const password = ref('')
+const firstName = ref('')
+const lastName = ref('')
+const company = ref('')
+
+// Validation states
+const emailError = ref('')
+const passwordError = ref('')
+const passwordStrength = ref(0)
+
+// Email validation
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!email) {
+    emailError.value = 'Email is required'
+    return false
+  }
+  if (!emailRegex.test(email)) {
+    emailError.value = 'Please enter a valid email address'
+    return false
+  }
+  emailError.value = ''
+  return true
+}
+
+// Password validation
+const validatePassword = (password: string): boolean => {
+  if (!password) {
+    passwordError.value = 'Password is required'
+    return false
+  }
+  if (password.length < 8) {
+    passwordError.value = 'Password must be at least 8 characters'
+    return false
+  }
+  
+  // Check for uppercase, lowercase, and number
+  const hasUpperCase = /[A-Z]/.test(password)
+  const hasLowerCase = /[a-z]/.test(password)
+  const hasNumber = /\d/.test(password)
+  
+  if (isSignup.value) {
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      passwordError.value = 'Password must contain uppercase, lowercase, and number'
+      return false
+    }
+  }
+  
+  passwordError.value = ''
+  return true
+}
+
+// Calculate password strength
+const calculatePasswordStrength = (password: string): number => {
+  let strength = 0
+  if (password.length >= 8) strength += 25
+  if (password.length >= 12) strength += 15
+  if (/[a-z]/.test(password)) strength += 15
+  if (/[A-Z]/.test(password)) strength += 15
+  if (/\d/.test(password)) strength += 15
+  if (/[^A-Za-z0-9]/.test(password)) strength += 15
+  return Math.min(strength, 100)
+}
+
+// Watch password for strength calculation
+watch(password, (newPassword) => {
+  if (isSignup.value && newPassword) {
+    passwordStrength.value = calculatePasswordStrength(newPassword)
+  } else {
+    passwordStrength.value = 0
+  }
+})
+
+// Show notification helper
+const showNotification = (message: string, type: 'error' | 'success' | 'info' = 'error') => {
+  notification.value = { show: true, message, type }
+  setTimeout(() => {
+    notification.value.show = false
+  }, 5000)
+}
+
+// Auth handlers
+const loginWithGoogle = async () => {
+  isLoading.value = true
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { 
+        redirectTo: `${window.location.origin}/auth/callback` 
+      }
+    })
+    if (error) throw error
+  } catch (error: any) {
+    showNotification(error.message || 'Failed to sign in with Google', 'error')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const loginWithGithub = async () => {
+  isLoading.value = true
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'github',
+      options: { 
+        redirectTo: `${window.location.origin}/auth/callback` 
+      }
+    })
+    if (error) throw error
+  } catch (error: any) {
+    showNotification(error.message || 'Failed to sign in with GitHub', 'error')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const handleSubmit = async () => {
+  // Validate inputs
+  const isEmailValid = validateEmail(email.value)
+  const isPasswordValid = validatePassword(password.value)
+  
+  if (!isEmailValid || !isPasswordValid) {
+    return
+  }
+  
+  isLoading.value = true
+  
+  try {
+    if (isSignup.value) {
+      // Validate required fields for signup
+      if (!firstName.value.trim() || !lastName.value.trim()) {
+        showNotification('Please fill in all required fields', 'error')
+        isLoading.value = false
+        return
+      }
+      
+      // Sign up
+      const { data, error } = await supabase.auth.signUp({
+        email: email.value,
+        password: password.value,
+        options: {
+          data: {
+            first_name: firstName.value,
+            last_name: lastName.value,
+            company: company.value
+          }
+        }
+      })
+      
+      if (error) throw error
+      
+      if (data.user) {
+        showNotification('Account created! Please check your email to confirm.', 'success')
+        // Clear form
+        firstName.value = ''
+        lastName.value = ''
+        company.value = ''
+        email.value = ''
+        password.value = ''
+      }
+    } else {
+      // Sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.value,
+        password: password.value
+      })
+      
+      if (error) throw error
+      
+      if (data.user) {
+        showNotification('Welcome back!', 'success')
+        // Redirect will happen automatically via watchEffect
+        setTimeout(() => {
+          navigateTo('/dashboard')
+        }, 500)
+      }
+    }
+  } catch (error: any) {
+    console.error('Auth error:', error)
+    showNotification(error.message || 'Authentication failed', 'error')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const toggleAuthMode = () => {
+  isSignup.value = !isSignup.value
+  // Clear errors when switching modes
+  emailError.value = ''
+  passwordError.value = ''
+  passwordStrength.value = 0
+}
+
+// SEO
+useHead({
+  title: 'RAALA - Access Control',
+  meta: [
+    { name: 'description', content: 'Sign in to access your RAALA autonomous greenhouse dashboard' }
+  ]
+})
+</script>
 
 <style scoped>
 /* Import Fonts */
@@ -537,6 +649,12 @@ useHead({
   color: rgb(161, 161, 170);
 }
 
+.required-asterisk {
+  color: rgb(239, 68, 68);
+  margin-left: 0.125rem;
+}
+
+
 .password-label-row {
   display: flex;
   justify-content: space-between;
@@ -633,6 +751,223 @@ useHead({
   transform: translateX(0.125rem);
 }
 
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.submit-btn:disabled:hover {
+  background-color: rgb(16, 185, 129);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+}
+
+/* Button Loading Spinner */
+.button-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Notification Toast */
+.notification-toast {
+  position: fixed;
+  top: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  min-width: 320px;
+  max-width: 500px;
+}
+
+.notification-toast iconify-icon {
+  flex-shrink: 0;
+}
+
+.notification-toast span {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s;
+}
+
+.notification-success {
+  background-color: rgba(16, 185, 129, 0.95);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.notification-success .notification-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.notification-error {
+  background-color: rgba(239, 68, 68, 0.95);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.notification-error .notification-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.notification-info {
+  background-color: rgba(59, 130, 246, 0.95);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.notification-info .notification-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Slide Down Animation for Toast */
+.slide-down-enter-active {
+  animation: slide-down 0.3s ease-out;
+}
+
+.slide-down-leave-active {
+  animation: slide-down 0.3s ease-out reverse;
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateX(-50%) translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+  backdrop-filter: blur(4px);
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(16, 185, 129, 0.2);
+  border-top-color: rgb(16, 185, 129);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Error Message */
+.error-message {
+  display: block;
+  font-size: 0.75rem;
+  color: rgb(239, 68, 68);
+  margin-top: 0.375rem;
+  font-weight: 500;
+}
+
+/* Password Strength Indicator */
+.password-strength {
+  margin-top: 0.75rem;
+}
+
+.strength-label {
+  font-size: 0.75rem;
+  color: rgb(161, 161, 170);
+  margin-bottom: 0.375rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.strength-text {
+  font-weight: 600;
+}
+
+.strength-text.weak {
+  color: rgb(239, 68, 68);
+}
+
+.strength-text.medium {
+  color: rgb(234, 179, 8);
+}
+
+.strength-text.strong {
+  color: rgb(16, 185, 129);
+}
+
+.strength-bar {
+  width: 100%;
+  height: 6px;
+  background-color: rgb(39, 39, 42);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.375rem;
+}
+
+.strength-fill {
+  height: 100%;
+  transition: all 0.3s ease;
+  border-radius: 3px;
+}
+
+.strength-fill.weak {
+  background-color: rgb(239, 68, 68);
+}
+
+.strength-fill.medium {
+  background-color: rgb(234, 179, 8);
+}
+
+.strength-fill.strong {
+  background-color: rgb(16, 185, 129);
+}
+
+.strength-hint {
+  font-size: 0.625rem;
+  color: rgb(113, 113, 122);
+  margin: 0;
+}
+
+/* Disabled State for Social Auth Buttons */
+.social-auth-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
 /* Toggle Section */
 .toggle-section {
   margin-top: 1.5rem;
@@ -671,276 +1006,6 @@ useHead({
   font-family: var(--font-mono);
 }
 
-/* Right Panel: Visual */
-.visual-panel {
-  display: none;
-  flex: 1;
-  background-color: rgb(9, 9, 11);
-  position: relative;
-  overflow: hidden;
-  align-items: center;
-  justify-content: center;
-  border-left: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.visual-grid {
-  position: absolute;
-  inset: 0;
-  background-image: 
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 60px 60px;
-}
-
-.visual-gradient {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, #000 0%, transparent 50%, transparent 100%);
-}
-
-.visual-blob {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 600px;
-  height: 600px;
-  background-color: rgba(16, 185, 129, 0.1);
-  border-radius: 50%;
-  filter: blur(120px);
-  animation: pulse 4s ease-in-out infinite;
-}
-
-/* Digital Twin Card */
-.digital-twin-card {
-  position: relative;
-  z-index: 10;
-  width: 24rem;
-  backdrop-filter: blur(24px);
-  background-color: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  animation: fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
-}
-
-.card-status {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.status-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background-color: rgb(16, 185, 129);
-  animation: pulse 2s ease-in-out infinite;
-  box-shadow: 0 0 10px rgb(16, 185, 129);
-}
-
-.status-text {
-  font-size: 0.75rem;
-  font-family: var(--font-mono);
-  color: rgb(52, 211, 153);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.card-id {
-  font-size: 0.625rem;
-  color: rgb(113, 113, 122);
-  font-family: var(--font-mono);
-}
-
-/* Visualization Area */
-.visualization-area {
-  height: 8rem;
-  border-radius: 0.5rem;
-  background-color: rgba(24, 24, 27, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0.5rem;
-  gap: 0.25rem;
-}
-
-.bar-wrapper {
-  width: 100%;
-  background-color: rgba(16, 185, 129, 0.2);
-  height: 40%;
-  border-radius: 0.125rem;
-  position: relative;
-  overflow: hidden;
-}
-
-.bar-70 { height: 70%; }
-.bar-50 { height: 50%; }
-.bar-80 { height: 80%; }
-.bar-30 { height: 30%; }
-
-.bar-fill {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  background-color: rgb(16, 185, 129);
-  height: 60%;
-}
-
-.bar-1 { animation: pulse 2s ease-in-out infinite; }
-.bar-2 { height: 40%; animation: pulse 3s ease-in-out infinite; }
-.bar-3 { height: 80%; animation: pulse 1.5s ease-in-out infinite; }
-.bar-4 { height: 50%; animation: pulse 2.5s ease-in-out infinite; }
-.bar-5 { height: 70%; animation: pulse 2s ease-in-out infinite; }
-
-.grid-line {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 1px;
-  background-color: rgba(16, 185, 129, 0.5);
-  animation: grid-move 3s linear infinite;
-}
-
-@keyframes grid-move {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(40px); }
-}
-
-/* Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-}
-
-.stat-card {
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  background-color: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.stat-label {
-  font-size: 0.625rem;
-  color: rgb(113, 113, 122);
-  font-weight: 500;
-  margin-bottom: 0.25rem;
-}
-
-.stat-value {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: white;
-  letter-spacing: -0.025em;
-  display: flex;
-  align-items: flex-end;
-  gap: 0.25rem;
-}
-
-.stat-indicator {
-  font-size: 0.625rem;
-  margin-bottom: 0.25rem;
-}
-
-.stat-up {
-  color: rgb(16, 185, 129);
-}
-
-.stat-down {
-  color: rgb(16, 185, 129);
-}
-
-/* Terminal Output */
-.terminal-output {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-  line-height: 1.75;
-  color: rgb(113, 113, 122);
-}
-
-.terminal-line {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.terminal-prompt {
-  color: rgb( 16, 185, 129);
-}
-
-/* Floating Quote */
-.floating-quote {
-  position: absolute;
-  bottom: 3rem;
-  left: 3rem;
-  right: 3rem;
-  text-align: center;
-}
-
-.quote-text {
-  font-size: 1.125rem;
-  color: rgb(161, 161, 170);
-  font-weight: 500;
-  line-height: 1.75;
-}
-
-.quote-attribution {
-  margin-top: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  font-family: var(--font-mono);
-  color: rgb(82, 82, 91);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.quote-dot {
-  width: 0.25rem;
-  height: 0.25rem;
-  border-radius: 50%;
-  background-color: rgb(82, 82, 91);
-}
-
-/* Animations */
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
 /* Transitions */
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.3s ease, transform 0.3s ease;
@@ -950,6 +1015,7 @@ useHead({
   opacity: 0;
   transform: translateY(-10px);
 }
+
 
 /* Responsive */
 @media (min-width: 768px) {
@@ -966,13 +1032,4 @@ useHead({
   }
 }
 
-@media (min-width: 1024px) {
-  .auth-panel {
-    width: 45%;
-  }
-  
-  .visual-panel {
-    display: flex;
-  }
-}
 </style>

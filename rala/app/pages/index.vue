@@ -1,4 +1,5 @@
 <template>
+  <Navbar />
   <div class="app-container">
     <main class="main-content">
       
@@ -247,6 +248,7 @@
 
     </main>
   </div>
+  <Footer />
 </template>
 
 <script setup>

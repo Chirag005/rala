@@ -19,13 +19,30 @@
         <iconify-icon icon="lucide:bell" width="20"></iconify-icon>
         <span class="notification-dot"></span>
       </button>
+      <button @click="handleLogout" class="logout-btn" title="Logout">
+        <iconify-icon icon="lucide:log-out" width="20"></iconify-icon>
+      </button>
     </div>
   </header>
 </template>
 
+<script setup>
+const supabase = useSupabaseClient()
+
+const handleLogout = async () => {
+  try {
+    await supabase.auth.signOut()
+    // Redirect to homepage
+    navigateTo('/')
+  } catch (error) {
+    console.error('Logout error:', error)
+  }
+}
+</script>
+
 <style scoped>
 .dashboard-header {
-  height: 4rem;
+  height: 6rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   align-items: center;
@@ -146,6 +163,22 @@
   border-radius: 50%;
   border: 1px solid #000;
 }
+
+.logout-btn {
+  color: #a1a1aa;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 300ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logout-btn:hover {
+  color: #f43f5e;
+}
+
 
 @media (max-width: 768px) {
   .next-harvest {

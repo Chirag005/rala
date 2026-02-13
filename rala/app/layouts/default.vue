@@ -4,7 +4,7 @@
     <LoadingWidget />
     
     <!-- Navigation -->
-    <Navbar />
+    <!-- <Navbar /> -->
     
     <!-- Main Content -->
     <main class="flex-grow">
@@ -12,7 +12,7 @@
     </main>
 
     <!-- Footer -->
-    <Footer />
+    <!-- <Footer /> -->
   </div>
 </template>
 
