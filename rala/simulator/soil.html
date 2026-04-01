@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAALA | Soil Moisture Live Data</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+</head>
+<body data-sensor="soil">
+    <div class="simulator-container">
+        <header class="header">
+            <div class="logo">
+                <a href="index.html" style="color:var(--zinc-400); text-decoration:none; margin-right:1rem; font-size:1.5rem;">←</a>
+                <h1>Soil Moisture Dashboard</h1>
+            </div>
+            <h2>Via ADS1115 ADC</h2>
+            <div class="connection-status" id="connectionBadge"><span class="status-dot"></span><span id="connectionText">Disconnected</span></div>
+        </header>
+        <main class="dashboard">
+            <section class="hardware-view">
+                <h3>Physical Device</h3>
+                <div class="sensor-box" id="iotSensor">
+                    <div class="sensor-header">
+                        <span class="sensor-model">Simple Soil Probe</span>
+                        <div class="live-indicator"><span class="pulse-dot"></span><span>LIVE</span></div>
+                    </div>
+                    <div class="metrics-grid" id="dynamicMetricsGrid">
+                        <!-- Polymorphic metrics injected by app.js -->
+                    </div>
+                    <div class="sensor-footer"><span>Status: <span id="sensorStatus">Waiting...</span></span><span id="lastUpdated">--:--:--</span></div>
+                </div>
+            </section>
+            <section class="data-feed-view">
+                <h3>Real-Time Telemetry Graph</h3>
+                <div class="terminal-wrapper" style="margin-bottom: 2rem; height: 400px; display: flex; flex-direction: column;">
+                    <div class="feed-header" id="chartAttributeToggles" style="gap: 1.5rem; justify-content: flex-start;">
+                        <span style="color: var(--zinc-600);">Waiting for data...</span>
+                    </div>
+                    <!-- Timeline Toggles -->
+                    <div class="feed-header" id="chartTimeToggles" style="gap: 1.5rem; justify-content: flex-start; border-top: 1px solid var(--zinc-800); background: var(--zinc-900);">
+                        <button class="time-toggle active" data-time="60">1M</button>
+                        <button class="time-toggle" data-time="300">5M</button>
+                        <button class="time-toggle" data-time="1800">30M</button>
+                        <button class="time-toggle" data-time="3600">1H</button>
+                        <button class="time-toggle" data-time="21600">6H</button>
+                        <button class="time-toggle" data-time="86400">1D</button>
+                    </div>
+                    <div class="chart-wrapper" style="flex: 1; padding: 1.5rem; position: relative; background: rgba(9, 9, 11, 0.8);">
+                        <canvas id="sensorChart"></canvas>
+                    </div>
+                </div>
+                <h3>Live Data Feed Pipeline</h3>
+                <div class="terminal-wrapper">
+                    <div class="feed-header"><span>Timestamp</span><span>Payload</span></div>
+                    <div class="feed-content" id="feedContent"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

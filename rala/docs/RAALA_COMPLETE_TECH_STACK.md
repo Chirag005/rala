@@ -446,13 +446,15 @@ Python Libraries:
 
 #### **Real-Time Data Flow**
 
+**Current Architecture (Phase 1): Stream Processor & EWMA**
 ```
-Sensor → Edge → MQTT Broker → Cloud Ingestion → InfluxDB → WebSocket → Dashboard
-          ↓
-     Local RL Model
-          ↓
-     Equipment Control
+Sensor → Edge → MQTT Broker → Cloud Ingestion (FastAPI) 
+                                     ├─→ [EWMA Smoothing] → Redis Pub/Sub → WebSocket → Dashboard
+                                     └─→ InfluxDB (Raw Historical Data)
 ```
+
+**Future Evolution (Production): MQTT over WebSockets**
+For absolute lowest-latency at hardware scale, the Nuxt 3 UI will connect directly to the MQTT Broker via WebSockets (`mqtt.js`), bypassing the FastAPI/Redis middleman entirely for the UI live-feed.
 
 #### **Protocols Used**
 

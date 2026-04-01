@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAALA | Sensor Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body data-sensor="loading">
+    <div class="simulator-container">
+        <header class="header">
+            <div class="logo">
+                <a href="index.html" style="color:var(--zinc-400); text-decoration:none; margin-right:1rem; font-size:1.5rem;">←</a>
+                <h1 id="dashboardTitle">Loading...</h1>
+            </div>
+            <h2 id="dashboardSubtitle">Connecting to registry...</h2>
+            <div class="connection-status" id="connectionBadge"><span class="status-dot"></span><span id="connectionText">Disconnected</span></div>
+        </header>
+        <main class="dashboard">
+            <section class="hardware-view">
+                <h3>Physical Device</h3>
+                <div class="sensor-box" id="iotSensor">
+                    <div class="sensor-header">
+                        <span class="sensor-model" id="sensorModel">--</span>
+                        <div class="live-indicator"><span class="pulse-dot" id="pulseDot"></span><span>LIVE</span></div>
+                    </div>
+                    <div class="metrics-grid" id="dynamicMetricsGrid">
+                        <!-- Polymorphic metrics injected by app.js -->
+                    </div>
+                    <div class="sensor-footer"><span>Status: <span id="sensorStatus">Waiting...</span></span><span id="lastUpdated">--:--:--</span></div>
+                </div>
+            </section>
+            <section class="data-feed-view">
+                <h3>Real-Time Telemetry Graph</h3>
+                <div class="terminal-wrapper" style="margin-bottom: 2rem; height: 400px; display: flex; flex-direction: column;">
+                    <div class="feed-header" id="chartAttributeToggles" style="gap: 1.5rem; justify-content: flex-start;">
+                        <span style="color: var(--zinc-600);">Waiting for data...</span>
+                    </div>
+                    <div class="feed-header" id="chartTimeToggles" style="gap: 1.5rem; justify-content: flex-start; border-top: 1px solid var(--zinc-800); background: var(--zinc-900);">
+                        <button class="time-toggle active" data-time="60">1M</button>
+                        <button class="time-toggle" data-time="300">5M</button>
+                        <button class="time-toggle" data-time="1800">30M</button>
+                        <button class="time-toggle" data-time="3600">1H</button>
+                        <button class="time-toggle" data-time="21600">6H</button>
+                        <button class="time-toggle" data-time="86400">1D</button>
+                    </div>
+                    <div class="chart-wrapper" style="flex: 1; padding: 1.5rem; position: relative; background: rgba(9, 9, 11, 0.8);">
+                        <canvas id="sensorChart"></canvas>
+                    </div>
+                </div>
+                <h3>Live Data Feed Pipeline</h3>
+                <div class="terminal-wrapper">
+                    <div class="feed-header"><span>Timestamp</span><span>Payload</span></div>
+                    <div class="feed-content" id="feedContent"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+    // ─────────────────────────────────────────────────────────
+    // Phase 14: Auto-Discovery Bootstrap
+    // Reads ?id= from URL, fetches sensor config, then hands
+    // off to app.js which reads document.body.dataset.sensor
+    // ─────────────────────────────────────────────────────────
+    (async function bootstrap() {
+        const params = new URLSearchParams(window.location.search);
+        const sensorId = params.get('id');
+
+        if (!sensorId) {
+            document.getElementById('dashboardTitle').textContent = 'No sensor specified';
+            document.getElementById('dashboardSubtitle').textContent = 'Add ?id=sensor_01 to the URL';
+            return;
+        }
+
+        try {
+            const resp = await fetch(`http://localhost:8000/api/sensor-config/${sensorId}`);
+            if (!resp.ok) throw new Error(`Sensor '${sensorId}' not found in registry`);
+            const config = await resp.json();
+
+            // Dynamically configure the page based on registry metadata
+            document.title = `RAALA | ${config.model} Live Data`;
+            document.getElementById('dashboardTitle').textContent = `${config.model} Dashboard`;
+            document.getElementById('dashboardSubtitle').textContent = config.display_name;
+            document.getElementById('sensorModel').textContent = `${config.model} (${config.bus})`;
+
+            // Map sensor_id to the data-sensor slug app.js expects
+            // sensor_01 → bme280, sensor_02 → as7341, etc.
+            // The mapping is implicit: app.js filters by sensor_id directly.
+            // We store the raw sensor_id so app.js can match it.
+            document.body.dataset.sensor = sensorId;
+            document.body.dataset.sensorId = sensorId;
+
+        } catch (err) {
+            document.getElementById('dashboardTitle').textContent = 'Sensor Not Found';
+            document.getElementById('dashboardSubtitle').textContent = err.message;
+            console.error('Phase 14 Bootstrap Error:', err);
+            return;
+        }
+
+        // Load app.js now that data-sensor is set
+        const script = document.createElement('script');
+        script.src = 'app.js';
+        document.body.appendChild(script);
+    })();
+    </script>
+</body>
+</html>

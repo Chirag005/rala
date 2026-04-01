@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: rala-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  influxdb:
+    image: influxdb:2.0
+    container_name: rala-influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=raala-admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=raala-password123
+      - DOCKER_INFLUXDB_INIT_ORG=raala
+      - DOCKER_INFLUXDB_INIT_BUCKET=raala
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=raala-super-secret-token
+    restart: unless-stopped
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: rala-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+
+volumes:
+  redis_data:
+  influxdb_data:
+  influxdb_config:
+  mosquitto_data:
+  mosquitto_log:
