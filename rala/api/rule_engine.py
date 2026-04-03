@@ -1,16 +1,18 @@
 import redis
 import json
 import time
+import threading
 
 STREAM_KEY = 'rala:sensors:stream_v2'
 PUBSUB_CHANNEL = 'rala:sensors:ui_v2'
+REGISTRY_KEY = 'rala:sensors:registry'
 
 # Connect to Redis to listen to the fire-hose of raw data
 redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
-# Cooldown: 30s for test verification (restore to 3600 for production)
+# Cooldown: 3600 for production (1 alert per sensor-attribute per hour)
 last_alert_time = {}
-ALERT_COOLDOWN = 30  # seconds — change to 3600 for production (1 alert per hour)
+ALERT_COOLDOWN = 3600  # seconds
 
 # Phase 13 Mathematical Boundaries
 THRESHOLDS = {
@@ -26,6 +28,59 @@ THRESHOLDS = {
     'moisture': {'min': 30, 'max': 60},
     'soil_temp': {'min': 15, 'max': 22}
 }
+
+# ─────────────────────────────────────────────────────────────
+# Phase 15: Heartbeat Watcher
+# Runs in a background thread every 5 seconds.
+# Checks rala:heartbeat:{sensor_id} TTL keys set by mock_sensors.py.
+# A missing key means the sensor has been silent for >12 seconds.
+# Publishes { type: "offline" } or { type: "online" } on state transitions.
+# ─────────────────────────────────────────────────────────────
+offline_sensors = set()   # tracks currently-offline sensor IDs
+
+def heartbeat_watcher():
+    watcher_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+    print("Phase 15: Heartbeat watcher started (polling every 5s)...")
+    while True:
+        try:
+            # Get all registered sensor IDs from the Phase 14 registry
+            sensor_ids = list(watcher_client.hkeys(REGISTRY_KEY))
+
+            for sensor_id in sensor_ids:
+                key_exists = watcher_client.exists(f"rala:heartbeat:{sensor_id}")
+
+                if not key_exists and sensor_id not in offline_sensors:
+                    # Transition: Live → Offline
+                    offline_sensors.add(sensor_id)
+                    event = {
+                        "type": "offline",
+                        "sensor_id": sensor_id,
+                        "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                    }
+                    watcher_client.publish(PUBSUB_CHANNEL, json.dumps(event))
+                    print(f"[HEARTBEAT] OFFLINE detected: {sensor_id}")
+
+                elif key_exists and sensor_id in offline_sensors:
+                    # Transition: Offline → Live
+                    offline_sensors.discard(sensor_id)
+                    event = {
+                        "type": "online",
+                        "sensor_id": sensor_id,
+                        "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                    }
+                    watcher_client.publish(PUBSUB_CHANNEL, json.dumps(event))
+                    print(f"[HEARTBEAT] ONLINE restored: {sensor_id}")
+
+        except redis.ConnectionError:
+            print("[HEARTBEAT] Redis unavailable, retrying...")
+        except Exception as e:
+            print(f"[HEARTBEAT] Watcher error: {e}")
+
+        time.sleep(5)  # poll every 5 seconds
+
+# Start watcher in a daemon thread (exits automatically when main process exits)
+watcher_thread = threading.Thread(target=heartbeat_watcher, daemon=True)
+watcher_thread.start()
 
 print("RAALA Automation Rule Engine Started. Tuning into data streams...")
 last_id = '$'
@@ -62,7 +117,7 @@ while True:
                                 alert_key = f"{sensor_id}_{key}"
                                 current_time = time.time()
                                 
-                                # Check the mathematically calculated 1-Hour Cooldown Limit mapping to specific nodes
+                                # Check the 1-Hour Cooldown per sensor-attribute pair
                                 if current_time - last_alert_time.get(alert_key, 0) > ALERT_COOLDOWN:
                                     direction = "HIGH" if val > t["max"] else "LOW"
                                     

@@ -122,8 +122,9 @@ try:
                 payload["moisture"] = round(moist, 2)
                 payload["soil_temp"] = round(stemp, 2)
 
-            # Redis injection
+            # Redis injection + Phase 15 Heartbeat TTL key
             redis_client.xadd(STREAM_KEY, {"data": json.dumps(payload)})
+            redis_client.setex(f"rala:heartbeat:{s_id}", 12, "1")  # 12s TTL — expires if silent
             
         print(f"[{timestamp}] Published distinct payloads for 4 sensors")
         time.sleep(1)

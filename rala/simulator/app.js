@@ -476,24 +476,72 @@ function handleMessage(message) {
             return;
         }
         
+        // --- Phase 15: Offline / Online Events (server-driven heartbeat) ---
+        if (payload.type === 'offline' || payload.type === 'online') {
+            const sid = payload.sensor_id;
+            const isOffline = payload.type === 'offline';
+            const lastSeenTime = formatTime(new Date());
+
+            // Dashboard page: update sensor box state
+            if (sensorBox && expectedSensorId === sid) {
+                if (isOffline) {
+                    sensorBox.classList.remove('active');
+                    sensorBox.classList.add('offline');
+                    liveIndicator.classList.remove('active');
+                    liveIndicator.classList.add('offline-indicator');
+                    if (sensorStatus) {
+                        sensorStatus.innerText = 'Offline';
+                        sensorStatus.style.color = 'var(--zinc-500)';
+                    }
+                    if (lastUpdatedText) lastUpdatedText.innerText = `Last seen: ${lastSeenTime}`;
+                    if (window.showToast) showToast(`${sid} has gone offline`, 'warning');
+                    if (feedContent) appendLog('SYSTEM', `<span style="color:#f59e0b;font-weight:bold">[OFFLINE]</span> ${sid} heartbeat expired`, true);
+                } else {
+                    sensorBox.classList.remove('offline');
+                    sensorBox.classList.add('active');
+                    liveIndicator.classList.remove('offline-indicator');
+                    liveIndicator.classList.add('active');
+                    if (sensorStatus) {
+                        sensorStatus.innerText = 'Transmitting';
+                        sensorStatus.style.color = 'var(--emerald-400)';
+                    }
+                    if (feedContent) appendLog('SYSTEM', `<span style="color:#34d399;font-weight:bold">[ONLINE]</span> ${sid} reconnected`, true);
+                }
+            }
+
+            // Index page: update inventory tile state
+            if (sensorType === 'index' && indexBoxes[sid]) {
+                const box = indexBoxes[sid];
+                const statObj = box.querySelector('.status-text');
+                const lastUpd = box.querySelector('.last-updated');
+                if (isOffline) {
+                    box.classList.remove('live');
+                    box.classList.add('offline');
+                    if (statObj) statObj.innerText = 'Sensor Offline';
+                    if (lastUpd) lastUpd.innerText = `Last: ${lastSeenTime}`;
+                } else {
+                    box.classList.remove('offline');
+                    if (statObj) statObj.innerText = 'Live';
+                    if (lastUpd) lastUpd.innerText = lastSeenTime;
+                }
+            }
+            return;
+        }
+
         // --- Index Page Logic ---
         if (sensorType === 'index') {
             const id = payload.sensor_id;
             if (indexBoxes[id]) {
                 const box = indexBoxes[id];
-                box.classList.add("live");
+                // Clear any offline state when live data resumes
+                box.classList.remove('offline');
+                box.classList.add('live');
                 const statObj = box.querySelector('.status-text');
                 const lastUpd = box.querySelector('.last-updated');
-                if(statObj) statObj.innerText = "Live Data Stream Active";
-                if(lastUpd) lastUpd.innerText = tObj.toLocaleTimeString();
-
-                if (indexTimeouts[id]) clearTimeout(indexTimeouts[id]);
-                indexTimeouts[id] = setTimeout(() => {
-                    box.classList.remove("live");
-                    if(statObj) statObj.innerText = "Offline";
-                }, 4000);
+                if (statObj) statObj.innerText = 'Live Data Stream Active';
+                if (lastUpd) lastUpd.innerText = tObj.toLocaleTimeString();
             }
-            return; 
+            return;
         }
 
         // --- Hardware UI Box (Individual Pages) ---
