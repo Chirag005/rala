@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAALA | Hardware Inventory</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body data-sensor="index">
+    <div class="simulator-container">
+        
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">🌱</span>
+                <h1>RAALA</h1>
+            </div>
+            <h2>Hardware Inventory &amp; Sensor Simulator</h2>
+            <div class="connection-status" id="connectionBadge">
+                <span class="status-dot"></span>
+                <span id="connectionText">Disconnected</span>
+            </div>
+        </header>
+
+        <main class="inventory">
+            <h3>Active Sensors <span id="sensorCount" style="color:var(--zinc-500);font-size:0.85rem;font-weight:400;"></span></h3>
+            <div class="inventory-grid" id="inventoryGrid">
+                <!-- Dynamically populated by Phase 14 auto-discovery -->
+                <div id="inventoryLoadingState" style="color:var(--zinc-500);grid-column:1/-1;padding:2rem 0;">
+                    Connecting to sensor registry...
+                </div>
+            </div>
+
+            <h3 style="margin-top: 3rem;">Other Hardware (No active data stream)</h3>
+            <div class="inventory-grid inactive">
+                <div class="inventory-tile static">
+                    <h4>ADS1115 16-Bit ADC</h4>
+                    <p class="desc">4-Channel Programmable Gain Amplifier used to read standard analog sensors via I2C.</p>
+                </div>
+                <div class="inventory-tile static">
+                    <h4>Raspberry Pi HAT</h4>
+                    <p class="desc">SparkFun Qwiic / STEMMA QT HAT. Connects Pi I2C buses to the sensor daisy chain.</p>
+                </div>
+                <div class="inventory-tile static">
+                    <h4>Cabling</h4>
+                    <p class="desc">8x STEMMA QT 100mm cables, 1x 200mm Premium Plug, 1x 100mm Socket Headers, 1x JST to Alligator.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- app.js must load first so registerIndexBox is available when the fetch resolves -->
+    <script src="app.js"></script>
+    <script>
+    // ─────────────────────────────────────────────────────────────────
+    // Phase 14: Auto-Discovery — fetch live inventory and render tiles
+    // This runs AFTER app.js; registerIndexBox() is available by now.
+    // ─────────────────────────────────────────────────────────────────
+    (async function buildInventory() {
+        const grid = document.getElementById('inventoryGrid');
+        const loadingEl = document.getElementById('inventoryLoadingState');
+        const countEl = document.getElementById('sensorCount');
+
+        try {
+            const resp = await fetch('http://localhost:8000/api/inventory');
+            if (!resp.ok) throw new Error('API unavailable');
+            const sensors = await resp.json();
+
+            if (loadingEl) loadingEl.remove();
+
+            if (sensors.length === 0) {
+                grid.innerHTML = `<p style="color:var(--zinc-500);grid-column:1/-1;padding:2rem 0;">
+                    No sensors registered yet. Start the pipeline and reload.
+                </p>`;
+                return;
+            }
+
+            countEl.textContent = `(${sensors.length} online)`;
+
+            sensors.forEach(s => {
+                const tile = document.createElement('a');
+                tile.href = `dashboard.html?id=${s.sensor_id}`;
+                tile.className = 'inventory-tile';
+                tile.id = `box-${s.sensor_id}`;
+                tile.innerHTML = `
+                    <div class="tile-header">
+                        <h4>${s.model} (${s.bus})</h4>
+                        <div class="tile-status"><span class="pulse-dot"></span></div>
+                    </div>
+                    <p class="desc">${s.display_name}</p>
+                    <div class="tile-footer">
+                        <span class="status-text">Live</span>
+                        <span class="last-updated" id="last-${s.sensor_id}">--:--:--</span>
+                    </div>
+                `;
+                grid.appendChild(tile);
+
+                // Register with app.js indexBoxes NOW — app.js is already loaded above
+                if (typeof registerIndexBox === 'function') registerIndexBox(s.sensor_id);
+            });
+
+        } catch (err) {
+            if (loadingEl) loadingEl.textContent = 'Could not reach API (http://localhost:8000). Is the pipeline running?';
+            console.error('Inventory fetch failed:', err);
+        }
+    })();
+    </script>
+</body>
+</html>

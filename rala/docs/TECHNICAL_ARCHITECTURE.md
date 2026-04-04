@@ -584,15 +584,17 @@ class DigitalTwin:
 
 ### Real-Time Sensor Data Flow
 
+**Phase 1 Architecture (Current)**
 ```
-[ Sensor ] → [ Edge Gateway ] → [ MQTT Broker ] → [ Cloud Ingestion Service ]
-                    ↓                                         ↓
-            [ Local RL Model ]                        [ InfluxDB ]
-                    ↓                                         ↓
-            [ Equipment Control ]                [ WebSocket Broadcast ]
-                    ↓                                         ↓
-            [ Physical Equipment ]                    [ Dashboard ]
+[ Sensor ] → [ Edge Gateway ] → [ MQTT Broker ] → [ Cloud Ingestion Service / FastAPI ]
+                    ↓                                         ├─→ [ EWMA Filter ] → [ Redis Stream ] → [ WebSocket ] → [ Dashboard ]
+            [ Local RL Model ]                                └─→ [ InfluxDB (Raw Storage) ]
+                    ↓                                         
+            [ Equipment Control ]                
+                    ↓                                         
+            [ Physical Equipment ]               
 ```
+*(Future Target: Upgrade to **MQTT over WebSockets** for direct Broker-to-Dashboard communication, bypassing the Redis layer for UI updates).*
 
 **Step-by-Step**
 
