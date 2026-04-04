@@ -1,18 +1,19 @@
 import time
 import json
 import redis
+import os
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 from datetime import datetime, timezone
 
 # Configurations
-REDIS_HOST = 'localhost'
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = 6379
 STREAM_KEY = 'rala:sensors:stream_v2'
 PUBSUB_CHANNEL = 'rala:sensors:ui_v2'
 REGISTRY_KEY = 'rala:sensors:registry'  # Phase 14: Redis Hash for sensor inventory
 
-INFLUX_URL = "http://localhost:8086"
+INFLUX_URL = os.getenv("INFLUX_URL", "http://localhost:8086")
 INFLUX_TOKEN = "raala-super-secret-token"
 INFLUX_ORG = "raala"
 INFLUX_BUCKET = "raala"

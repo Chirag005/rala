@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import redis.asyncio as aioredis
 from typing import List
 from influxdb_client import InfluxDBClient
+import os
 
 app = FastAPI(title="RAALA Live Sensor API")
 
@@ -19,10 +20,11 @@ app.add_middleware(
 PUBSUB_CHANNEL = 'rala:sensors:ui_v2'
 REGISTRY_KEY = 'rala:sensors:registry'  # Phase 14: sensor inventory
 # Async Redis connection for listening to the pubsub without blocking the main event loop
-redis_conn = aioredis.from_url("redis://localhost:6379", decode_responses=True)
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+redis_conn = aioredis.from_url(f"redis://{REDIS_HOST}:6379", decode_responses=True)
 
 # InfluxDB Configuration
-INFLUX_URL = "http://localhost:8086"
+INFLUX_URL = os.getenv("INFLUX_URL", "http://localhost:8086")
 INFLUX_TOKEN = "raala-super-secret-token"
 INFLUX_ORG = "raala"
 INFLUX_BUCKET = "raala"

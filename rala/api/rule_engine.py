@@ -2,13 +2,15 @@ import redis
 import json
 import time
 import threading
+import os
 
 STREAM_KEY = 'rala:sensors:stream_v2'
 PUBSUB_CHANNEL = 'rala:sensors:ui_v2'
 REGISTRY_KEY = 'rala:sensors:registry'
 
 # Connect to Redis to listen to the fire-hose of raw data
-redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+redis_client = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
 
 # Cooldown: 3600 for production (1 alert per sensor-attribute per hour)
 last_alert_time = {}
@@ -39,7 +41,7 @@ THRESHOLDS = {
 offline_sensors = set()   # tracks currently-offline sensor IDs
 
 def heartbeat_watcher():
-    watcher_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+    watcher_client = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
     print("Phase 15: Heartbeat watcher started (polling every 5s)...")
     while True:
         try:

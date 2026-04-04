@@ -1,11 +1,13 @@
 import time
 import json
 import random
+import os
 from datetime import datetime, timezone
 import redis
 
 # Redis connection
-redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+redis_client = redis.Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
 STREAM_KEY = 'rala:sensors:stream_v2'
 
 # Initialize 4 Specific Polymorphic Sensors

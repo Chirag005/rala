@@ -39,6 +39,68 @@ services:
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
 
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: rala-api
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - INFLUX_URL=http://influxdb:8086
+    depends_on:
+      - redis
+      - influxdb
+    restart: unless-stopped
+
+  stream-processor:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: rala-stream-processor
+    command: ["python", "stream_processor.py"]
+    environment:
+      - REDIS_HOST=redis
+      - INFLUX_URL=http://influxdb:8086
+    depends_on:
+      - redis
+      - influxdb
+    restart: unless-stopped
+
+  rule-engine:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: rala-rule-engine
+    command: ["python", "rule_engine.py"]
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  mock-sensors:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: rala-mock-sensors
+    command: ["python", "mock_sensors.py"]
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  frontend:
+    image: nginx:alpine
+    container_name: rala-frontend
+    ports:
+      - "8080:80"
+    volumes:
+      - ./simulator:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
 volumes:
   redis_data:
   influxdb_data:
