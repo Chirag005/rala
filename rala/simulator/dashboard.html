@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RAALA | Sensor Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
@@ -16,7 +16,13 @@
                 <h1 id="dashboardTitle">Loading...</h1>
             </div>
             <h2 id="dashboardSubtitle">Connecting to registry...</h2>
-            <div class="connection-status" id="connectionBadge"><span class="status-dot"></span><span id="connectionText">Disconnected</span></div>
+            <div class="nav-actions">
+                <button class="icon-btn" id="btnSettings" title="Threshold Settings">⚙️</button>
+                <button class="icon-btn" id="btnAlerts" title="Alerts History">
+                    🔔<span class="badge" id="alertBadgeCount"></span>
+                </button>
+                <div class="connection-status" id="connectionBadge"><span class="status-dot"></span><span id="connectionText">Disconnected</span></div>
+            </div>
         </header>
         <main class="dashboard">
             <section class="hardware-view">
@@ -101,10 +107,23 @@
         }
 
         // Load app.js now that data-sensor is set
-        const script = document.createElement('script');
-        script.src = 'app.js';
-        document.body.appendChild(script);
+        const appScript = document.createElement('script');
+        appScript.src = 'app.js?v=2';
+        document.body.appendChild(appScript);
     })();
     </script>
+
+    <!-- Phase 17 & 18 Drawer Architecture -->
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+    
+    <div class="slide-drawer" id="slideDrawer">
+        <div class="drawer-header">
+            <h3 id="drawerTitle">Drawer</h3>
+            <button class="drawer-close" id="drawerClose">✕</button>
+        </div>
+        <div class="drawer-content" id="drawerContent">
+            <!-- Dynamic content injected via JS -->
+        </div>
+    </div>
 </body>
 </html>

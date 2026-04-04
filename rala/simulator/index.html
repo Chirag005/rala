@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RAALA | Hardware Inventory</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body data-sensor="index">
@@ -16,9 +16,14 @@
                 <h1>RAALA</h1>
             </div>
             <h2>Hardware Inventory &amp; Sensor Simulator</h2>
-            <div class="connection-status" id="connectionBadge">
-                <span class="status-dot"></span>
-                <span id="connectionText">Disconnected</span>
+            <div class="nav-actions">
+                <button class="icon-btn" id="btnAlerts" title="Alerts History">
+                    🔔<span class="badge" id="alertBadgeCount"></span>
+                </button>
+                <div class="connection-status" id="connectionBadge">
+                    <span class="status-dot"></span>
+                    <span id="connectionText">Disconnected</span>
+                </div>
             </div>
         </header>
 
@@ -49,8 +54,21 @@
         </main>
     </div>
 
+    <!-- Phase 18 Drawer Architecture -->
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+    
+    <div class="slide-drawer" id="slideDrawer">
+        <div class="drawer-header">
+            <h3 id="drawerTitle">Alert History</h3>
+            <button class="drawer-close" id="drawerClose">✕</button>
+        </div>
+        <div class="drawer-content" id="drawerContent">
+            <!-- Dynamic alerts injected via JS -->
+        </div>
+    </div>
+
     <!-- app.js must load first so registerIndexBox is available when the fetch resolves -->
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
     <script>
     // ─────────────────────────────────────────────────────────────────
     // Phase 14: Auto-Discovery — fetch live inventory and render tiles

@@ -3,6 +3,9 @@ import json
 import time
 import threading
 import os
+import uuid
+from influxdb_client import InfluxDBClient, Point
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 STREAM_KEY = 'rala:sensors:stream_v2'
 PUBSUB_CHANNEL = 'rala:sensors:ui_v2'
@@ -16,8 +19,13 @@ redis_client = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
 last_alert_time = {}
 ALERT_COOLDOWN = 3600  # seconds
 
-# Phase 13 Mathematical Boundaries
-THRESHOLDS = {
+# Influx configuration for Persisting Alerts (Phase 18)
+INFLUX_URL = os.getenv("INFLUX_URL", "http://localhost:8086")
+influx_client = InfluxDBClient(url=INFLUX_URL, token="raala-super-secret-token", org="raala")
+write_api = influx_client.write_api(write_options=SYNCHRONOUS)
+
+# default fallback boundaries
+DEFAULT_THRESHOLDS = {
     'temperature': {'min': 19, 'max': 22},
     'humidity': {'min': 40, 'max': 60},
     'pressure': {'min': 1000, 'max': 1020},
@@ -111,10 +119,14 @@ while True:
                     
                     sensor_id = payload.get("sensor_id")
                     
+                    # Phase 17: Load active thresholds dynamically from Redis
+                    raw_t = redis_client.get(f"rala:thresholds:{sensor_id}")
+                    active_thresholds = json.loads(raw_t) if raw_t else DEFAULT_THRESHOLDS
+                    
                     # Phase 13: Generic Threshold Evaluation mapping all dimensions
                     for key, val in payload.items():
-                        if key in THRESHOLDS:
-                            t = THRESHOLDS[key]
+                        if key in active_thresholds:
+                            t = active_thresholds[key]
                             if val < t["min"] or val > t["max"]:
                                 alert_key = f"{sensor_id}_{key}"
                                 current_time = time.time()
@@ -122,13 +134,28 @@ while True:
                                 # Check the 1-Hour Cooldown per sensor-attribute pair
                                 if current_time - last_alert_time.get(alert_key, 0) > ALERT_COOLDOWN:
                                     direction = "HIGH" if val > t["max"] else "LOW"
+                                    alert_id = str(uuid.uuid4())
+                                    msg = f"WARNING: {sensor_id} {key.upper()} is {direction} ({val:.2f})!\nSafe range: {t['min']} - {t['max']}."
                                     
                                     alert = {
                                         "type": "alert",
+                                        "alert_id": alert_id,
                                         "sensor_id": sensor_id,
+                                        "attribute": key,
                                         "level": "error",
-                                        "message": f"WARNING: {sensor_id} {key.upper()} is {direction} ({val:.2f})!\nSafe range: {t['min']} - {t['max']}."
+                                        "message": msg
                                     }
+                                    
+                                    # Phase 18: Write persistent alert to InfluxDB
+                                    pt = Point("alerts") \
+                                        .tag("sensor_id", sensor_id) \
+                                        .tag("attribute", key) \
+                                        .tag("level", "error") \
+                                        .field("alert_id", alert_id) \
+                                        .field("value", float(val)) \
+                                        .field("direction", direction) \
+                                        .field("message", msg)
+                                    write_api.write(bucket="raala", org="raala", record=pt)
                                     
                                     # Push the synthesized alert directly down the WebSocket TCP pipeline
                                     redis_client.publish(PUBSUB_CHANNEL, json.dumps(alert))

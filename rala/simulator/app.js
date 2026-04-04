@@ -458,6 +458,18 @@ function handleMessage(message) {
             const toastMessage = payload.message;
             const toastLevel = payload.level || 'info';
             
+            // Phase 18: Notification Bell Unread Counter
+            try {
+                if (typeof window.unreadAlerts !== 'undefined') {
+                    window.unreadAlerts++;
+                    const badge = document.getElementById('alertBadgeCount');
+                    if (badge) {
+                        badge.innerText = window.unreadAlerts;
+                        badge.classList.add('active');
+                    }
+                }
+            } catch(e) {}
+            
             // Use the self-contained RAALA toast engine
             if (window.showToast) {
                 window.showToast(toastMessage, toastLevel);
@@ -690,3 +702,183 @@ function syntaxHighlight(json) {
         return '<span class="' + cls + '">' + match + '</span>';
     });
 }
+
+// ──────────────────────────────────────────────
+// Phase 17 & 18: Notification Bell & Slide Drawer UX
+// ──────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+    const drawerOverlay = document.getElementById('drawerOverlay');
+    const slideDrawer = document.getElementById('slideDrawer');
+    const drawerTitle = document.getElementById('drawerTitle');
+    const drawerContent = document.getElementById('drawerContent');
+    const drawerClose = document.getElementById('drawerClose');
+    const btnAlerts = document.getElementById('btnAlerts');
+    const btnSettings = document.getElementById('btnSettings');
+    
+    window.unreadAlerts = 0;
+
+    function closeDrawer() {
+        if(drawerOverlay) drawerOverlay.classList.remove('open');
+        if(slideDrawer) slideDrawer.classList.remove('open');
+    }
+
+    if (drawerClose) drawerClose.addEventListener('click', closeDrawer);
+    if (drawerOverlay) drawerOverlay.addEventListener('click', closeDrawer);
+
+    // Phase 18: Alerts Drawer
+    if (btnAlerts && drawerTitle) {
+        btnAlerts.addEventListener('click', async () => {
+            drawerTitle.innerText = "Alert History";
+            drawerOverlay.classList.add('open');
+            slideDrawer.classList.add('open');
+            drawerContent.innerHTML = '<span style="color:var(--zinc-500)">Loading Timeline...</span>';
+            
+            try {
+                // Clear unread count when viewing
+                window.unreadAlerts = 0;
+                const badge = document.getElementById('alertBadgeCount');
+                if (badge) badge.classList.remove('active');
+                
+                const res = await fetch('http://localhost:8000/api/alerts');
+                const alerts = await res.json();
+                
+                if (!alerts || alerts.length === 0) {
+                    drawerContent.innerHTML = '<span style="color:var(--zinc-500)">No alerts logged in the past 24 hours.</span>';
+                    return;
+                }
+                
+                let html = '<ul class="alert-list">';
+                alerts.forEach(a => {
+                    const ackClass = a.acknowledged ? "acknowledged" : "";
+                    const ackBtnHTML = a.acknowledged ? 
+                        `<button class="ack-btn" disabled>Acknowledged</button>` : 
+                        `<button class="ack-btn" onclick="window.ackAlert('${a.id}')">Acknowledge</button>`;
+                        
+                    const isGlobal = (typeof expectedSensorId === 'undefined' || expectedSensorId === 'index');
+                    const prefix = (isGlobal || a.sensor_id !== expectedSensorId) ? `<strong>${a.sensor_id}</strong> - ` : '';
+                    
+                    html += `
+                        <li class="alert-item ${ackClass}" id="alert-dom-${a.id}">
+                            <div class="alert-header">
+                                <span style="opacity:0.7">${new Date(a.timestamp).toLocaleString(undefined, {hour:'2-digit', minute:'2-digit'})}</span>
+                                <span style="color:var(--rose-500);font-weight:bold">${a.level.toUpperCase()}</span>
+                            </div>
+                            <div class="alert-msg">${prefix}${a.message}</div>
+                            ${ackBtnHTML}
+                        </li>
+                    `;
+                });
+                html += '</ul>';
+                drawerContent.innerHTML = html;
+            } catch (e) {
+                drawerContent.innerHTML = '<span style="color:var(--rose-500)">Error fetching alert log.</span>';
+                console.error(e);
+            }
+        });
+    }
+
+    // Acknowledge Function (global window scope for inline onclicks)
+    window.ackAlert = async function(id) {
+        try {
+            await fetch(`http://localhost:8000/api/alerts/acknowledge/${id}`, {method: 'POST'});
+            const li = document.getElementById(`alert-dom-${id}`);
+            if(li) {
+                li.classList.add('acknowledged');
+                const btn = li.querySelector('.ack-btn');
+                if(btn) {
+                    btn.innerText = "Acknowledged";
+                    btn.disabled = true;
+                }
+            }
+        } catch(e) {
+            console.error("Failed to acknowledge", e);
+        }
+    };
+
+    // Phase 17: Settings Drawer (Configurable Thresholds)
+    if (btnSettings && drawerTitle) {
+        btnSettings.addEventListener('click', async () => {
+            if (typeof expectedSensorId === 'undefined' || expectedSensorId === 'loading' || expectedSensorId === 'index') return;
+            
+            drawerTitle.innerText = "Active Thresholds Mode";
+            drawerOverlay.classList.add('open');
+            slideDrawer.classList.add('open');
+            drawerContent.innerHTML = '<span style="color:var(--zinc-500)">Loading Server Constraints...</span>';
+            
+            try {
+                const res = await fetch(`http://localhost:8000/api/thresholds/${expectedSensorId}`);
+                const thresholds = await res.json();
+                
+                // Pluck existing metrics dynamically from the UI
+                const liveLabels = Array.from(document.querySelectorAll('.metric .label'));
+                
+                if (liveLabels.length === 0) {
+                     drawerContent.innerHTML = '<span style="color:var(--zinc-500)">Waiting for live telemetry to parse active capabilities...</span>';
+                     return;
+                }
+                
+                let html = '<div style="display:flex;flex-direction:column;gap:1.5rem;">';
+                const activeKeys = [];
+                liveLabels.forEach(el => {
+                     const key = el.innerText.toLowerCase().replace(' ', '_');
+                     activeKeys.push(key);
+                     const t = thresholds[key] || {min: 0, max: 100};
+                     html += `
+                        <div class="slider-group">
+                            <label>${key.toUpperCase()} safe range</label>
+                            <div class="slider-inputs">
+                                <div style="display:flex;flex-direction:column;gap:0.3rem">
+                                    <span style="font-size:0.7rem;color:var(--zinc-500)">Min</span>
+                                    <input type="number" step="any" id="thresh-min-${key}" value="${t.min}">
+                                </div>
+                                <div style="display:flex;flex-direction:column;gap:0.3rem">
+                                    <span style="font-size:0.7rem;color:var(--zinc-500)">Max</span>
+                                    <input type="number" step="any" id="thresh-max-${key}" value="${t.max}">
+                                </div>
+                            </div>
+                        </div>
+                     `;
+                });
+                html += `</div><button class="save-btn" id="btnSaveSettings">Push Hot Reload to Server</button>`;
+                
+                drawerContent.innerHTML = html;
+                
+                // Bind Save Logic
+                const btnSave = document.getElementById('btnSaveSettings');
+                if (btnSave) {
+                    btnSave.addEventListener('click', async () => {
+                        const payload = { thresholds: {} };
+                        activeKeys.forEach(k => {
+                             payload.thresholds[k] = {
+                                 min: parseFloat(document.getElementById(`thresh-min-${k}`).value),
+                                 max: parseFloat(document.getElementById(`thresh-max-${k}`).value)
+                             };
+                        });
+                        try {
+                            btnSave.innerText = "Deploying...";
+                            btnSave.style.opacity = 0.5;
+                            await fetch(`http://localhost:8000/api/thresholds/${expectedSensorId}`, {
+                                method: 'PUT',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify(payload)
+                            });
+                            closeDrawer();
+                            if(window.showToast) window.showToast("New Edge compute limits successfully deployed without restart! ✅", "success");
+                        } catch(e) {
+                            console.error(e);
+                            if(window.showToast) window.showToast("Failed to save backend constraints", "error");
+                        } finally {
+                            btnSave.innerText = "Push Hot Reload to Server";
+                            btnSave.style.opacity = 1;
+                        }
+                    });
+                }
+                
+            } catch(e) {
+                 drawerContent.innerHTML = '<span style="color:var(--rose-500)">Network disconnect. Cannot reach backend registry.</span>';
+                 console.error(e);
+            }
+        });
+    }
+});

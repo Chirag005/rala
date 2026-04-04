@@ -3,8 +3,10 @@ import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import redis.asyncio as aioredis
-from typing import List
+from typing import List, Dict
 from influxdb_client import InfluxDBClient
+from pydantic import BaseModel
+import os
 import os
 
 app = FastAPI(title="RAALA Live Sensor API")
@@ -158,6 +160,91 @@ async def get_inventory():
     sensors.sort(key=lambda s: s.get('sensor_id', ''))
     return sensors
 
+# ─────────────────────────────────────────────
+# Phase 17: UI-Configurable Thresholds
+# ─────────────────────────────────────────────
+class ThresholdModel(BaseModel):
+    min: float
+    max: float
+
+class ThresholdUpdateModel(BaseModel):
+    thresholds: Dict[str, ThresholdModel]
+
+@app.get("/api/thresholds/{sensor_id}")
+async def get_thresholds(sensor_id: str):
+    data = await redis_conn.get(f"rala:thresholds:{sensor_id}")
+    if data:
+        return json.loads(data)
+    # Phase 13 Hardcoded Defaults Fallback
+    defaults = {
+        'temperature': {'min': 19, 'max': 22},
+        'humidity': {'min': 40, 'max': 60},
+        'pressure': {'min': 1000, 'max': 1020},
+        'vpd': {'min': 0.8, 'max': 1.2},
+        'ambient_light': {'min': 2000, 'max': 4000},
+        'color_temp': {'min': 4000, 'max': 6000},
+        'ppfd': {'min': 400, 'max': 800},
+        'eco2': {'min': 400, 'max': 800},
+        'tvoc': {'min': 0, 'max': 100},
+        'moisture': {'min': 30, 'max': 60},
+        'soil_temp': {'min': 15, 'max': 22}
+    }
+    return defaults
+
+@app.put("/api/thresholds/{sensor_id}")
+async def update_thresholds(sensor_id: str, payload: ThresholdUpdateModel):
+    data_dict = {k: {"min": v.min, "max": v.max} for k, v in payload.thresholds.items()}
+    await redis_conn.set(f"rala:thresholds:{sensor_id}", json.dumps(data_dict))
+    return {"status": "success", "message": f"Thresholds saved for {sensor_id}"}
+
+# ─────────────────────────────────────────────
+# Phase 18: Notification Bell Alert History
+# ─────────────────────────────────────────────
+@app.get("/api/alerts")
+async def get_alerts(unacked_only: bool = False):
+    query_api = influx_client.query_api()
+    # Query last 24 hours of alerts
+    query = f'''
+    from(bucket: "{INFLUX_BUCKET}")
+      |> range(start: -24h)
+      |> filter(fn: (r) => r["_measurement"] == "alerts")
+      |> filter(fn: (r) => r["_field"] == "message")
+    '''
+    try:
+        result = await asyncio.to_thread(query_api.query, org=INFLUX_ORG, query=query)
+        alerts = []
+        for table in result:
+            for record in table.records:
+                alert_id = record.values.get("alert_id", "unknown")
+                alerts.append({
+                    "id": alert_id,
+                    "timestamp": record.get_time().isoformat(),
+                    "sensor_id": record.values.get("sensor_id"),
+                    "attribute": record.values.get("attribute"),
+                    "level": record.values.get("level"),
+                    "message": record.get_value()
+                })
+        
+        alerts.sort(key=lambda x: x["timestamp"], reverse=True)
+        
+        # Check ack state
+        acked_ids = await redis_conn.smembers("rala:alerts:acknowledged")
+        final_alerts = []
+        for a in alerts:
+            a["acknowledged"] = a["id"] in acked_ids
+            if unacked_only and a["acknowledged"]:
+                continue
+            final_alerts.append(a)
+            
+        return final_alerts
+    except Exception as e:
+        print(f"Flux Alert Query Error: {e}")
+        return []
+
+@app.post("/api/alerts/acknowledge/{alert_id}")
+async def acknowledge_alert(alert_id: str):
+    await redis_conn.sadd("rala:alerts:acknowledged", alert_id)
+    return {"status": "success"}
 @app.get("/api/sensor-config/{sensor_id}")
 async def get_sensor_config(sensor_id: str):
     """Returns metadata for a single sensor by ID."""
