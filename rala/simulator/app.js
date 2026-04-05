@@ -707,7 +707,7 @@ function syntaxHighlight(json) {
 // Phase 17 & 18: Notification Bell & Slide Drawer UX
 // ──────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
+function initDrawers() {
     const drawerOverlay = document.getElementById('drawerOverlay');
     const slideDrawer = document.getElementById('slideDrawer');
     const drawerTitle = document.getElementById('drawerTitle');
@@ -810,6 +810,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(`http://localhost:8000/api/thresholds/${expectedSensorId}`);
                 const thresholds = await res.json();
                 
+                // Map sensor metrics to visual slider bounds for UI rendering
+                function getBoundsForAttribute(attr) {
+                    switch (attr) {
+                        case 'temperature': return {min: -20, max: 80};
+                        case 'humidity': return {min: 0, max: 100};
+                        case 'pressure': return {min: 900, max: 1200};
+                        case 'vpd': return {min: 0, max: 5};
+                        case 'lux': return {min: 0, max: 65000};
+                        case 'uv_index': return {min: 0, max: 15};
+                        case 'tvoc': return {min: 0, max: 60000};
+                        case 'eco2': return {min: 400, max: 60000};
+                        case 'moisture': return {min: 200, max: 1000}; 
+                        default: return {min: 0, max: 2000};
+                    }
+                }
+
                 // Pluck existing metrics dynamically from the UI
                 const liveLabels = Array.from(document.querySelectorAll('.metric .label'));
                 
@@ -826,15 +842,14 @@ document.addEventListener('DOMContentLoaded', () => {
                      const t = thresholds[key] || {min: 0, max: 100};
                      html += `
                         <div class="slider-group">
-                            <label>${key.toUpperCase()} safe range</label>
-                            <div class="slider-inputs">
-                                <div style="display:flex;flex-direction:column;gap:0.3rem">
-                                    <span style="font-size:0.7rem;color:var(--zinc-500)">Min</span>
-                                    <input type="number" step="any" id="thresh-min-${key}" value="${t.min}">
-                                </div>
-                                <div style="display:flex;flex-direction:column;gap:0.3rem">
-                                    <span style="font-size:0.7rem;color:var(--zinc-500)">Max</span>
-                                    <input type="number" step="any" id="thresh-max-${key}" value="${t.max}">
+                            <label style="display:flex; justify-content:space-between">
+                               <span>${key.toUpperCase()} safe range</span>
+                            </label>
+                            <div class="slider-container">
+                                <div id="noui-${key}"></div>
+                                <div class="slider-value-tags">
+                                    <span id="slider-min-val-${key}">0</span>
+                                    <span id="slider-max-val-${key}">0</span>
                                 </div>
                             </div>
                         </div>
@@ -844,15 +859,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 drawerContent.innerHTML = html;
                 
+                // Initialize noUiSlider instances
+                const activeSliders = {};
+                activeKeys.forEach(k => {
+                    const el = document.getElementById(`noui-${k}`);
+                    const t = thresholds[k] || {min: 0, max: 100};
+                    const bounds = getBoundsForAttribute(k);
+                    
+                    noUiSlider.create(el, {
+                        start: [t.min, t.max],
+                        connect: true,
+                        range: {
+                            'min': bounds.min,
+                            'max': bounds.max
+                        },
+                        step: 0.1
+                    });
+                    
+                    activeSliders[k] = el.noUiSlider;
+                    
+                    el.noUiSlider.on('update', function (values, handle) {
+                        if (handle === 0) {
+                            document.getElementById(`slider-min-val-${k}`).innerText = `Min: ${parseFloat(values[0]).toFixed(2)}`;
+                        } else {
+                            document.getElementById(`slider-max-val-${k}`).innerText = `Max: ${parseFloat(values[1]).toFixed(2)}`;
+                        }
+                    });
+                });
+                
                 // Bind Save Logic
                 const btnSave = document.getElementById('btnSaveSettings');
                 if (btnSave) {
                     btnSave.addEventListener('click', async () => {
                         const payload = { thresholds: {} };
                         activeKeys.forEach(k => {
+                             const vals = activeSliders[k].get();
                              payload.thresholds[k] = {
-                                 min: parseFloat(document.getElementById(`thresh-min-${k}`).value),
-                                 max: parseFloat(document.getElementById(`thresh-max-${k}`).value)
+                                 min: parseFloat(vals[0]),
+                                 max: parseFloat(vals[1])
                              };
                         });
                         try {
@@ -881,4 +925,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDrawers);
+} else {
+    initDrawers();
+}
